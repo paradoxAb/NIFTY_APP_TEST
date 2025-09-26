@@ -8,7 +8,7 @@ st.set_page_config(page_title="Nifty Stocks Dashboard", page_icon="📊", layout
 # 📂 Load Data
 @st.cache_data
 def load_data():
-    df = pd.read_csv("../Dataset/Nifty_Stocks.csv12.csv")
+    df = pd.read_csv("Nifty_Stocks.csv")
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
