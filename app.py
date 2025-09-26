@@ -1,42 +1,62 @@
 import streamlit as st
 import pandas as pd
-import seaborn as sb
+import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Title of the app
-st.title("📈 Nifty Stocks Dashboard")
+# 🎨 Streamlit Page Config
+st.set_page_config(page_title="Nifty Stocks Dashboard", page_icon="📊", layout="wide")
 
-# Load dataset
+# 🌈 Custom Style
+sns.set_style("whitegrid")
+sns.set_palette("Set2")
+
+# 📂 Load Data
 @st.cache_data
 def load_data():
-    df = pd.read_csv("Nifty_Stocks.csv")
+    df = pd.read_csv("../Dataset/Nifty_Stocks.csv12.csv")
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
 df = load_data()
 
-# Sidebar - Select Category
-st.sidebar.header("Filter Options")
+# 🏷️ Sidebar - Filters
+st.sidebar.header("🔍 Filter Options")
+
+# Category selection
 categories = df['Category'].unique()
-selected_category = st.sidebar.selectbox("Select Category", categories)
+selected_category = st.sidebar.selectbox("📂 Select Category", categories)
 
 # Filter by category
 filtered_df = df[df['Category'] == selected_category]
 
-# Show available symbols
+# Symbol selection (multi-select for comparison)
 symbols = filtered_df['Symbol'].unique()
-selected_symbol = st.sidebar.selectbox("Select Symbol", symbols)
+selected_symbols = st.sidebar.multiselect("📌 Select Symbol(s)", symbols, default=[symbols[0]])
 
-# Filter by symbol
-stock_data = df[df['Symbol'] == selected_symbol]
+# Chart type
+chart_type = st.sidebar.radio("📊 Chart Type", ["Line Chart", "Area Chart"])
 
-# Plot line chart
-st.subheader(f"Closing Price Trend for {selected_symbol}")
-fig, ax = plt.subplots(figsize=(10, 5))
-sb.lineplot(x='Date', y='Close', data=stock_data, ax=ax)
+# 🎯 Main Dashboard
+st.title("📈 Nifty Stocks Interactive Dashboard")
+st.markdown(f"Showing **{chart_type}** for **{', '.join(selected_symbols)}** in category **{selected_category}**")
+
+# 🎨 Plot
+fig, ax = plt.subplots(figsize=(12, 6))
+
+for symbol in selected_symbols:
+    stock_data = df[df['Symbol'] == symbol]
+    if chart_type == "Line Chart":
+        sns.lineplot(x="Date", y="Close", data=stock_data, label=symbol, ax=ax)
+    else:
+        ax.fill_between(stock_data["Date"], stock_data["Close"], alpha=0.3, label=symbol)
+
+ax.set_xlabel("Date")
+ax.set_ylabel("Closing Price")
+ax.set_title("Stock Price Trend", fontsize=16, fontweight="bold")
 plt.xticks(rotation=45)
+plt.legend(title="Symbols")
 st.pyplot(fig)
 
-# Show raw data (optional)
-if st.checkbox("Show Raw Data"):
-    st.write(stock_data)
+# 📋 Show Raw Data Option
+if st.checkbox("📑 Show Raw Data Table"):
+    st.dataframe(filtered_df[filtered_df['Symbol'].isin(selected_symbols)])
