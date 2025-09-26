@@ -1,20 +1,14 @@
 import streamlit as st
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 # 🌙 Page Setup
 st.set_page_config(page_title="Nifty Stocks Dashboard", page_icon="📊", layout="wide")
 
-# 🎨 Dark Theme Styling
-plt.style.use("dark_background")
-sns.set_style("darkgrid")
-sns.set_palette("bright")
-
 # 📂 Load Data
 @st.cache_data
 def load_data():
-    df = pd.read_csv("Nifty_Stocks.csv")
+    df = pd.read_csv("../Dataset/Nifty_Stocks.csv12.csv")
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
@@ -27,9 +21,9 @@ selected_category = st.sidebar.selectbox("📂 Select Category", categories)
 
 filtered_df = df[df['Category'] == selected_category]
 symbols = filtered_df['Symbol'].unique()
-selected_symbols = st.sidebar.multiselect("📌 Select Symbol(s)", symbols, default=[symbols[0]])
+selected_symbol = st.sidebar.selectbox("📌 Select Symbol", symbols)
 
-chart_type = st.sidebar.radio("📊 Chart Type", ["Line Chart", "Area Chart", "Both"])
+chart_type = st.sidebar.radio("📊 Chart Type", ["Line Chart", "Area Chart", "Candlestick", "Volume", "Combined"])
 
 # 🎯 Title
 st.markdown(
@@ -37,35 +31,83 @@ st.markdown(
     unsafe_allow_html=True
 )
 st.markdown(
-    f"<h3 style='text-align: center; color: orange;'>Category: {selected_category} | Symbols: {', '.join(selected_symbols)}</h3>",
+    f"<h3 style='text-align: center; color: orange;'>Category: {selected_category} | Symbol: {selected_symbol}</h3>",
     unsafe_allow_html=True
 )
 
-# 📊 Plot Chart
-fig, ax = plt.subplots(figsize=(12, 6))
+# 🎨 Filtered Data
+stock_data = df[df['Symbol'] == selected_symbol].sort_values("Date")
 
-for symbol in selected_symbols:
-    stock_data = df[df['Symbol'] == symbol]
+# 📊 Plotly Charts
+fig = go.Figure()
 
-    if chart_type == "Line Chart":
-        sns.lineplot(x="Date", y="Close", data=stock_data, label=symbol, ax=ax)
+if chart_type == "Line Chart":
+    fig.add_trace(go.Scatter(
+        x=stock_data["Date"], y=stock_data["Close"],
+        mode="lines", name="Close Price",
+        line=dict(color="cyan")
+    ))
 
-    elif chart_type == "Area Chart":
-        ax.fill_between(stock_data["Date"], stock_data["Close"], alpha=0.4, label=symbol)
+elif chart_type == "Area Chart":
+    fig.add_trace(go.Scatter(
+        x=stock_data["Date"], y=stock_data["Close"],
+        mode="lines", name="Close Price",
+        fill="tozeroy", line=dict(color="orange")
+    ))
 
-    else:  # Both
-        sns.lineplot(x="Date", y="Close", data=stock_data, label=symbol, ax=ax)
-        ax.fill_between(stock_data["Date"], stock_data["Close"], alpha=0.2)
+elif chart_type == "Candlestick":
+    fig.add_trace(go.Candlestick(
+        x=stock_data["Date"],
+        open=stock_data["Open"], high=stock_data["High"],
+        low=stock_data["Low"], close=stock_data["Close"],
+        name="Candlestick"
+    ))
 
-ax.set_xlabel("Date", fontsize=12, color="white")
-ax.set_ylabel("Closing Price", fontsize=12, color="white")
-ax.set_title("Stock Price Trend", fontsize=16, fontweight="bold", color="cyan")
-plt.xticks(rotation=45, color="white")
-plt.yticks(color="white")
-plt.legend(title="Symbols", facecolor="black", labelcolor="white")
+elif chart_type == "Volume":
+    colors = ["green" if c >= o else "red" for c, o in zip(stock_data["Close"], stock_data["Open"])]
+    fig.add_trace(go.Bar(
+        x=stock_data["Date"], y=stock_data["Volume"],
+        marker_color=colors, name="Volume"
+    ))
 
-st.pyplot(fig)
+elif chart_type == "Combined":
+    # Candlestick
+    fig.add_trace(go.Candlestick(
+        x=stock_data["Date"],
+        open=stock_data["Open"], high=stock_data["High"],
+        low=stock_data["Low"], close=stock_data["Close"],
+        name="Candlestick"
+    ))
+    # Volume as bar below
+    fig.add_trace(go.Bar(
+        x=stock_data["Date"], y=stock_data["Volume"],
+        marker_color="lightblue", name="Volume", opacity=0.4,
+        yaxis="y2"
+    ))
+
+    # Dual axis for volume
+    fig.update_layout(
+        yaxis2=dict(
+            overlaying="y",
+            side="right",
+            showgrid=False,
+            position=1.0
+        )
+    )
+
+# 🖌️ Dark Theme Layout
+fig.update_layout(
+    template="plotly_dark",
+    xaxis_title="Date",
+    yaxis_title="Price",
+    plot_bgcolor="black",
+    paper_bgcolor="black",
+    font=dict(color="white"),
+    legend=dict(bgcolor="rgba(0,0,0,0.5)")
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # 📑 Show Data Table
 if st.checkbox("📋 Show Raw Data Table"):
-    st.dataframe(filtered_df[filtered_df['Symbol'].isin(selected_symbols)])
+    st.dataframe(stock_data)
